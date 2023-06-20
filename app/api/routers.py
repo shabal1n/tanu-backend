@@ -1,10 +1,10 @@
 from fastapi import APIRouter
+from app.api.endpoints.users import users_router
 
-from app.api.endpoints import users
 
 routes = APIRouter()
 
-routes.include_router(users.router, prefix="/users", tags=["users"])
+routes.include_router(users_router, prefix="/users", tags=["users"])
 
 # Additional routers or sub-routers can be included here
 

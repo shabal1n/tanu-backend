@@ -1,36 +1,54 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from app.core.database import get_db
 
-from app.models.user import UserCreate, UserUpdate, UserInDB
-
-router = APIRouter()
-
-
-@router.post("/", response_model=UserInDB)
-def create_user(user: UserCreate):
-    # Logic to create a new user
-    # Save user to the database and return the created user
-    return user
+from app.models.users import User, UserCreate, UserResponse
+from sqlalchemy.orm import Session
 
 
-@router.get("/{user_id}", response_model=UserInDB)
-def get_user(user_id: int):
-    # Logic to retrieve a user by ID
-    # Query the database to get the user with the specified ID
-    # Return the retrieved user
-    return {"user_id": user_id, "username": "JohnDoe"}
+users_router = APIRouter()
 
 
-@router.put("/{user_id}", response_model=UserInDB)
-def update_user(user_id: int, user: UserUpdate):
-    # Logic to update a user by ID
-    # Query the database to get the user with the specified ID
-    # Update the user with the new data provided in the request
-    # Save the updated user to the database and return the updated user
-    return {"user_id": user_id, "username": user.username, "email": user.email}
+@users_router.get("/")
+async def get_users(db: Session = Depends(get_db)):
+    users = db.query(User).all()
+    return [UserResponse.from_orm(user) for user in users]
 
 
-@router.delete("/{user_id}")
-def delete_user(user_id: int):
-    # Logic to delete a user by ID
-    # Query the database to delete the user with the specified ID
-    return {"message": f"User with ID {user_id} deleted successfully"}
+@users_router.get("/{user_id}")
+async def get_user(user_id: int, db: Session = Depends(get_db)):
+    users = db.query(User).filter(User.id == user_id).all()
+    return [UserResponse.from_orm(user) for user in users]
+
+
+@users_router.post("/")
+async def create_user(user: UserCreate, db: Session = Depends(get_db)):
+    db_user = User(
+        name=user.name,
+        surname=user.surname,
+        email=user.email,
+        password_hash=user.password_hash,
+        last_login=user.last_login,
+        xp_points=user.xp_points,
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return UserResponse.from_orm(db_user)
+
+
+@users_router.put("/{user_id}")
+async def update_user(user_id: int, user_data: dict, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    for key, value in user_data.items():
+        setattr(user, key, value)
+    db.commit()
+    db.refresh(user)
+    return UserResponse.from_orm(user)
+
+
+@users_router.delete("/{user_id}")
+async def delete_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    db.delete(user)
+    db.commit()
+    return {"message": f"User #{user_id} deleted"}
