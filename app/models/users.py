@@ -54,5 +54,3 @@ class User(Base):
     password_hash = Column(String)
     last_login = Column(DateTime)
     xp_points = Column(Integer)
-
-
